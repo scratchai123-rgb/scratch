@@ -5,6 +5,7 @@ import time
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
+
 print("Starting bot...", flush=True)
 
 # ENV VARIABLES
