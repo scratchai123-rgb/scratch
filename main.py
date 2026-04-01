@@ -1,5 +1,4 @@
 import scratchattach as sa
-from scratchattach.cloud_requests import CloudRequests
 import anthropic
 import os
 import time
@@ -21,31 +20,29 @@ print("Logging into Scratch...")
 session = sa.login(username, password)
 print("Logged in!")
 
-# CONNECT TO CLOUD
+# CONNECT CLOUD
 print("Connecting to cloud...")
 cloud = session.connect_cloud(1298059856)
 print("Connected to cloud!")
 
-# CREATE REQUEST HANDLER
-requests = CloudRequests(cloud)
+# REQUEST HANDLER
+requests = cloud.requests()
 print("Requests handler created!")
 
-# CHAT REQUEST
+# CHAT FUNCTION
 @requests.request
 def chat(message):
-    print("Received message:", message)
+    print("Received:", message)
 
     try:
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=100,
-            messages=[
-                {"role": "user", "content": message}
-            ]
+            messages=[{"role": "user", "content": message}]
         )
 
         reply = response.content[0].text
-        print("Sending reply:", reply)
+        print("Reply:", reply)
 
         return reply
 
@@ -56,14 +53,14 @@ def chat(message):
 # READY EVENT
 @requests.event
 def on_ready():
-    print("Bot is ready and listening!")
+    print("Bot is ready!")
 
-# KEEP-ALIVE SERVER (required for Render)
+# KEEP RENDER ALIVE
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Bot is running!")
+        self.wfile.write(b"Bot running")
 
     def log_message(self, format, *args):
         pass
@@ -75,9 +72,9 @@ def run_server():
 threading.Thread(target=run_server).start()
 print("Web server started!")
 
-# START CLOUD REQUEST LISTENER
+# START REQUEST LISTENER
 print("Starting cloud requests...")
-requests.run(thread=True)
+requests.start(thread=True)
 
 # KEEP PROCESS ALIVE
 while True:
