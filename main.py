@@ -1,6 +1,9 @@
 import scratchattach as sa
 import anthropic
 import os
+import time
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 username = os.environ["SCRATCH_USERNAME"]
 password = os.environ["SCRATCH_PASSWORD"]
@@ -48,6 +51,18 @@ def on_set(activity):
 
 events.start()
 
-import time
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running!")
+    def log_message(self, format, *args):
+        pass
+
+def run_server():
+    HTTPServer(("0.0.0.0", 10000), Handler).serve_forever()
+
+threading.Thread(target=run_server).start()
+
 while True:
     time.sleep(1)
