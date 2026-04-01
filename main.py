@@ -8,6 +8,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 username = os.environ["SCRATCH_USERNAME"]
 password = os.environ["SCRATCH_PASSWORD"]
 api_key = os.environ["ANTHROPIC_KEY"]
+print("test")
 
 print("Logging into Scratch...")
 client = anthropic.Anthropic(api_key=api_key)
