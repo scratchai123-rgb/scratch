@@ -1,6 +1,7 @@
 import scratchattach as sa
 import anthropic
 import os
+import time
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -21,6 +22,7 @@ def chat(message):
         max_tokens=100,
         messages=[{"role": "user", "content": message}]
     )
+    print(f"Sending response back")
     return response.content[0].text
 
 @requests.event
@@ -40,4 +42,8 @@ def run_server():
     HTTPServer(("0.0.0.0", port), Handler).serve_forever()
 
 threading.Thread(target=run_server).start()
-requests.start(thread=False)
+
+requests.start(thread=True)
+
+while True:
+    time.sleep(1)
