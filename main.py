@@ -31,7 +31,7 @@ def chat(message):
 
 @requests.event
 def on_ready():
-    self.wfile.write(b"Bot is running! Requests handler is active.")
+    print("Bot is ready!")
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
