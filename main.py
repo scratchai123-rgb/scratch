@@ -8,36 +8,49 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 username = os.environ["SCRATCH_USERNAME"]
 password = os.environ["SCRATCH_PASSWORD"]
 api_key = os.environ["ANTHROPIC_KEY"]
-print("test")
+
+print("Starting bot...")
+
+# Claude client
+client = anthropic.Anthropic(api_key=api_key)
 
 print("Logging into Scratch...")
-client = anthropic.Anthropic(api_key=api_key)
 session = sa.login(username, password)
 print("Logged in!")
-cloud = session.connect_cloud("1298059856")
-print("Connected to cloud!")
-requests = cloud.requests()
-print("Requests handler created!")
+
+print("Connecting to cloud...")
+cloud = session.connect_cloud(1298059856)  # project id as number
+print("Connected!")
+
+# CREATE REQUEST HANDLER (correct way)
+requests = sa.CloudRequests(cloud)
 
 @requests.request
 def chat(message):
-    print(f"Received message: {message}")
+    print("Received message:", message)
+
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=100,
         messages=[{"role": "user", "content": message}]
     )
-    return response.content[0].text
+
+    reply = response.content[0].text
+    print("Sending reply:", reply)
+
+    return reply
 
 @requests.event
 def on_ready():
-    print("Bot is ready!")
+    print("Bot is ready and listening!")
 
+# Simple web server (keeps Render alive)
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Bot is running!")
+
     def log_message(self, format, *args):
         pass
 
@@ -48,11 +61,9 @@ def run_server():
 threading.Thread(target=run_server).start()
 print("Web server started!")
 
-try:
-    requests.start(thread=True)
-    print("Requests handler started!")
-except Exception as e:
-    print(f"Error starting requests handler: {e}")
+# START LISTENER
+print("Starting cloud requests...")
+requests.run()
 
 while True:
     time.sleep(1)
