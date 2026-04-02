@@ -4,6 +4,7 @@ import os
 import re
 import time
 import threading
+import urllib.request
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 print("Starting bot...", flush=True)
@@ -29,6 +30,20 @@ def strip_markdown(text):
     text = re.sub(r'\n+', ' ', text)                            # newlines to spaces
     text = re.sub(r'\s+', ' ', text)                            # collapse extra spaces
     return text.strip()
+
+# SELF-PING to prevent Render free tier spin down
+def keep_alive():
+    url = os.environ.get("RENDER_EXTERNAL_URL", "")
+    if not url:
+        print("No RENDER_EXTERNAL_URL set, skipping keep-alive pings.", flush=True)
+        return
+    while True:
+        time.sleep(600)  # ping every 10 minutes
+        try:
+            urllib.request.urlopen(url)
+            print("Keep-alive ping sent.", flush=True)
+        except Exception as e:
+            print("Keep-alive ping failed:", e, flush=True)
 
 # LOGIN
 print("Logging into Scratch...", flush=True)
@@ -94,6 +109,9 @@ def run_server():
 
 # START WEB SERVER IN BACKGROUND
 threading.Thread(target=run_server, daemon=True).start()
+
+# START KEEP-ALIVE PINGER IN BACKGROUND
+threading.Thread(target=keep_alive, daemon=True).start()
 
 # START CLOUD LISTENER (blocks main thread to keep bot alive)
 print("Starting cloud request listener...", flush=True)
