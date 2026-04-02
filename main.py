@@ -11,8 +11,7 @@ print("Starting bot...", flush=True)
 username = os.environ["SCRATCH_USERNAME"]
 password = os.environ["SCRATCH_PASSWORD"]
 api_key = os.environ["ANTHROPIC_KEY"]
-project_id = 1298059856  # <-- your project ID
-
+project_id = 1298085384
 # CLAUDE CLIENT
 client = anthropic.Anthropic(api_key=api_key)
 
