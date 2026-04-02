@@ -11,7 +11,7 @@ print("Starting bot...", flush=True)
 username = os.environ["SCRATCH_USERNAME"]
 password = os.environ["SCRATCH_PASSWORD"]
 api_key = os.environ["ANTHROPIC_KEY"]
-project_id = 1298059856
+project_id = 1298059856  # <-- your project ID
 
 # CLAUDE CLIENT
 client = anthropic.Anthropic(api_key=api_key)
@@ -41,13 +41,21 @@ def chat(message):
             messages=[{"role": "user", "content": message}]
         )
         reply = response.content[0].text.strip()
+
+        # Scratch cloud vars only support numbers.
+        # scratchattach encodes text automatically, but keep replies SHORT.
+        # Truncate to ~100 chars to avoid encoding issues.
+        if len(reply) > 100:
+            reply = reply[:97] + "..."
+
         print("Sending reply:", reply, flush=True)
         return reply
+
     except Exception as e:
         print("Claude error:", e, flush=True)
-        return "Error generating reply"
+        return "Error"
 
-# DEBUG EVENT (to see all incoming requests)
+# EVENTS
 @requests.event
 def on_request(req):
     print("Incoming request:", req.name, req.args, flush=True)
@@ -62,22 +70,19 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Bot running")
+
     def log_message(self, format, *args):
-        return
+        return  # silence request logs
 
 def run_server():
     port = int(os.environ.get("PORT", 10000))
-    print("Starting web server...", flush=True)
+    print(f"Starting web server on port {port}...", flush=True)
     HTTPServer(("0.0.0.0", port), Handler).serve_forever()
 
-# START WEB SERVER
+# START WEB SERVER IN BACKGROUND
 threading.Thread(target=run_server, daemon=True).start()
 
+# START CLOUD LISTENER — use thread=False so the main thread stays alive
+# (thread=True can cause the script to exit immediately on some hosts)
 print("Starting cloud request listener...", flush=True)
-requests.start(thread=True)
-
-print("Bot fully started!", flush=True)
-
-# KEEP SCRIPT ALIVE
-while True:
-    time.sleep(60)
+requests.start(thread=False)  # This blocks — keeps the bot alive
