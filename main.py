@@ -1,6 +1,7 @@
 import scratchattach as sa
 import anthropic
 import os
+import re
 import time
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -12,8 +13,18 @@ username = os.environ["SCRATCH_USERNAME"]
 password = os.environ["SCRATCH_PASSWORD"]
 api_key = os.environ["ANTHROPIC_KEY"]
 project_id = 1298085384
+
 # CLAUDE CLIENT
 client = anthropic.Anthropic(api_key=api_key)
+
+# MARKDOWN STRIPPER
+def strip_markdown(text):
+    text = re.sub(r'#+\s*', '', text)            # remove headings
+    text = re.sub(r'\*\*?(.*?)\*\*?', r'\1', text)  # remove bold/italic
+    text = re.sub(r'`.*?`', '', text)            # remove inline code
+    text = re.sub(r'\n+', ' ', text)             # newlines to spaces
+    text = re.sub(r'\s+', ' ', text)             # collapse extra spaces
+    return text.strip()
 
 # LOGIN
 print("Logging into Scratch...", flush=True)
@@ -36,23 +47,21 @@ def chat(message):
     try:
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=100,
+            max_tokens=500,
             messages=[{"role": "user", "content": message}]
         )
-        reply = response.content[0].text.strip()
+        reply = strip_markdown(response.content[0].text)
 
-        # Scratch cloud vars only support numbers.
-        # scratchattach encodes text automatically, but keep replies SHORT.
-        # Truncate to ~100 chars to avoid encoding issues.
-        if len(reply) > 100:
-            reply = reply[:97] + "..."
+        # Truncate to 200 chars to avoid cloud variable encoding issues
+        if len(reply) > 200:
+            reply = reply[:197] + "..."
 
         print("Sending reply:", reply, flush=True)
         return reply
 
     except Exception as e:
         print("Claude error:", e, flush=True)
-        return "Error"
+        return "Error generating reply"
 
 # EVENTS
 @requests.event
@@ -81,7 +90,6 @@ def run_server():
 # START WEB SERVER IN BACKGROUND
 threading.Thread(target=run_server, daemon=True).start()
 
-# START CLOUD LISTENER — use thread=False so the main thread stays alive
-# (thread=True can cause the script to exit immediately on some hosts)
+# START CLOUD LISTENER (blocks main thread to keep bot alive)
 print("Starting cloud request listener...", flush=True)
-requests.start(thread=False)  # This blocks — keeps the bot alive
+requests.start(thread=False)
