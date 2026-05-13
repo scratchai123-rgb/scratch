@@ -13,7 +13,7 @@ print("Starting bot...", flush=True)
 username = os.environ["SCRATCH_USERNAME"]
 password = os.environ["SCRATCH_PASSWORD"]
 
-# KEEP SAME ENV VARIABLE NAME
+# Keep the old secret name, but put your OpenAI key inside it
 api_key = os.environ["ANTHROPIC_KEY"]
 
 project_id = 1298085384
@@ -21,8 +21,10 @@ project_id = 1298085384
 # OPENAI CLIENT
 client = OpenAI(api_key=api_key)
 
-# MARKDOWN STRIPPER
 def strip_markdown(text):
+    if not text:
+        return ""
+
     text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
     text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
     text = re.sub(r'\*(.*?)\*', r'\1', text)
@@ -34,87 +36,20 @@ def strip_markdown(text):
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
 
-# SELF-PING
 def keep_alive():
     url = os.environ.get("RENDER_EXTERNAL_URL", "")
     if not url:
-        print("No RENDER_EXTERNAL_URL set, skipping keep-alive pings.", flush=True)
+        print("No RENDER_EXTERNAL_URL set, skipping keep-alive.", flush=True)
         return
 
     while True:
         time.sleep(600)
-
         try:
-            urllib.request.urlopen(url)
+            urllib.request.urlopen(url, timeout=10)
             print("Keep-alive ping sent.", flush=True)
-
         except Exception as e:
-            print("Keep-alive ping failed:", e, flush=True)
+            print("Keep-alive failed:", repr(e), flush=True)
 
-# LOGIN
-print("Logging into Scratch...", flush=True)
-session = sa.login(username, password)
-print("Logged in!", flush=True)
-
-# CONNECT TO CLOUD
-print("Connecting to cloud...", flush=True)
-cloud = session.connect_cloud(project_id)
-print("Connected to cloud!", flush=True)
-
-# CREATE REQUEST HANDLER
-requests = cloud.requests()
-print("Requests handler created!", flush=True)
-
-# REQUEST FUNCTION
-@requests.request
-def chat(message):
-    print("Received message:", message, flush=True)
-
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a helpful assistant. "
-                        "Keep all responses under 200 characters. "
-                        "Be concise and clear. "
-                        "Do not use markdown formatting."
-                    )
-                },
-                {
-                    "role": "user",
-                    "content": message
-                }
-            ],
-            max_tokens=100
-        )
-
-        reply = response.choices[0].message.content
-        reply = strip_markdown(reply)
-
-        # Safety truncation
-        if len(reply) > 200:
-            reply = reply[:197] + "..."
-
-        print("Sending reply:", reply, flush=True)
-        return reply
-
-    except Exception as e:
-        print("OpenAI error:", e, flush=True)
-        return "Error generating reply"
-
-# EVENTS
-@requests.event
-def on_request(req):
-    print("Incoming request:", req.name, req.args, flush=True)
-
-@requests.event
-def on_ready():
-    print("Bot is ready and listening!", flush=True)
-
-# RENDER KEEP-ALIVE SERVER
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -129,12 +64,62 @@ def run_server():
     print(f"Starting web server on port {port}...", flush=True)
     HTTPServer(("0.0.0.0", port), Handler).serve_forever()
 
-# START WEB SERVER
-threading.Thread(target=run_server, daemon=True).start()
+print("Logging into Scratch...", flush=True)
+session = sa.login(username, password)
+print("Logged in!", flush=True)
 
-# START KEEP-ALIVE PINGER
+print("Connecting to Scratch cloud...", flush=True)
+cloud = session.connect_cloud(project_id)
+print("Connected to cloud!", flush=True)
+
+requests = cloud.requests()
+print("Scratch request handler created!", flush=True)
+
+@requests.request
+def chat(message):
+    print("Received message:", message, flush=True)
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            max_tokens=100,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are ChatGPT, not Claude. "
+                        "You are a helpful assistant inside a Scratch project. "
+                        "Keep every response under 200 characters. "
+                        "Do not use markdown. Be clear and concise."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": str(message)
+                }
+            ]
+        )
+
+        reply = response.choices[0].message.content
+        reply = strip_markdown(reply)
+
+        if len(reply) > 200:
+            reply = reply[:197] + "..."
+
+        print("Sending reply:", reply, flush=True)
+        return reply
+
+    except Exception as e:
+        print("OpenAI error type:", type(e).__name__, flush=True)
+        print("OpenAI error:", repr(e), flush=True)
+        return "OpenAI error. Check Render logs."
+
+@requests.event
+def on_ready():
+    print("Bot is ready and listening!", flush=True)
+
+threading.Thread(target=run_server, daemon=True).start()
 threading.Thread(target=keep_alive, daemon=True).start()
 
-# START CLOUD LISTENER
-print("Starting cloud request listener...", flush=True)
+print("Starting Scratch cloud listener...", flush=True)
 requests.start(thread=False)
