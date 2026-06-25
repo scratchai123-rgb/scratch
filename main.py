@@ -14,8 +14,7 @@ username = os.environ["SCRATCH_USERNAME"]
 password = os.environ["SCRATCH_PASSWORD"]
 
 # Keep this name because your OpenAI key is stored in ANTHROPIC_KEY
-api_key = os.environ["ANTHROPIC_KEY"]
-
+api_key = os.environ["ANTHROPIC_KEY"].strip()
 project_id = 1298085384
 
 # OPENAI CLIENT
