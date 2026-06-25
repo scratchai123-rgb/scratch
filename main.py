@@ -13,13 +13,25 @@ print("Starting bot...", flush=True)
 username = os.environ["SCRATCH_USERNAME"]
 password = os.environ["SCRATCH_PASSWORD"]
 
-# Keep the old secret name, but put your OpenAI key inside it
+# Keep this name because your OpenAI key is stored in ANTHROPIC_KEY
 api_key = os.environ["ANTHROPIC_KEY"]
 
 project_id = 1298085384
 
 # OPENAI CLIENT
-client = OpenAI(api_key=api_key)
+client = OpenAI(
+    api_key=api_key,
+    timeout=20.0,
+    max_retries=2
+)
+
+# TEST IF RENDER CAN REACH OPENAI
+try:
+    urllib.request.urlopen("https://api.openai.com/v1/models", timeout=10)
+    print("Can reach OpenAI API URL.", flush=True)
+except Exception as e:
+    print("Cannot reach OpenAI API URL:", repr(e), flush=True)
+
 
 def strip_markdown(text):
     if not text:
@@ -36,6 +48,7 @@ def strip_markdown(text):
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
 
+
 def keep_alive():
     url = os.environ.get("RENDER_EXTERNAL_URL", "")
     if not url:
@@ -50,6 +63,7 @@ def keep_alive():
         except Exception as e:
             print("Keep-alive failed:", repr(e), flush=True)
 
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -59,10 +73,12 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
 
+
 def run_server():
     port = int(os.environ.get("PORT", 10000))
     print(f"Starting web server on port {port}...", flush=True)
     HTTPServer(("0.0.0.0", port), Handler).serve_forever()
+
 
 print("Logging into Scratch...", flush=True)
 session = sa.login(username, password)
@@ -74,6 +90,7 @@ print("Connected to cloud!", flush=True)
 
 requests = cloud.requests()
 print("Scratch request handler created!", flush=True)
+
 
 @requests.request
 def chat(message):
@@ -100,8 +117,11 @@ def chat(message):
             ]
         )
 
-        reply = response.choices[0].message.content
+        reply = response.choices[0].message.content or ""
         reply = strip_markdown(reply)
+
+        if not reply:
+            reply = "I could not make a response."
 
         if len(reply) > 200:
             reply = reply[:197] + "..."
@@ -112,11 +132,14 @@ def chat(message):
     except Exception as e:
         print("OpenAI error type:", type(e).__name__, flush=True)
         print("OpenAI error:", repr(e), flush=True)
+        print("OpenAI cause:", repr(getattr(e, "__cause__", None)), flush=True)
         return "OpenAI error. Check Render logs."
+
 
 @requests.event
 def on_ready():
     print("Bot is ready and listening!", flush=True)
+
 
 threading.Thread(target=run_server, daemon=True).start()
 threading.Thread(target=keep_alive, daemon=True).start()
